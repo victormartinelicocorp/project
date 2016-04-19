@@ -437,6 +437,56 @@ class BusinessRequirement(models.Model):
                 cr, uid, [thread_id], [message.author_id.id], context=context)
         return msg_id
 
+    def email_split(self, cr, uid, ids, msg, context=None):
+        email_list = tools.email_split(
+            (msg.get('to') or '') + ',' + (msg.get('cc') or ''))
+        # check left-part is not already an alias
+        issue_ids = self.browse(cr, uid, ids, context=context)
+        aliases = [
+            issue.project_id.alias_name for issue in issue_ids
+            if issue.project_id]
+        return filter(lambda x: x.split('@')[0] not in aliases, email_list)
+
+    def message_new(self, cr, uid, msg, custom_values=None, context=None):
+        """ Overrides mail_thread message_new that is called by the mailgateway
+            through message_process.
+            This override updates the document according to the email.
+        """
+        if custom_values is None:
+            custom_values = {}
+        if custom_values['project_id']:
+            message_follower_ids = self.pool.get(
+                'project.project').browse(
+                    cr,
+                    uid,
+                    custom_values['project_id'],
+                    context)._get_followers(
+                        cr,
+                        uid)[custom_values[
+                            'project_id']]['message_follower_ids']
+        context = dict(context or {}, state_to='draft')
+
+        defaults = {
+            'name': self.pool.get(
+                'ir.sequence').get(cr, uid, 'business.requirement'),
+            'description': msg.get('subject') or _("No Subject"),
+            'business_requirement': msg.get('body'),
+            'partner_id': msg.get('author_id', False),
+            'user_id': False,
+            'message_follower_ids': [(6, 0, message_follower_ids)],
+        }
+        defaults.update(custom_values)
+        res_id = super(BusinessRequirement, self).message_new(
+            cr, uid, msg, custom_values=defaults, context=context)
+        email_list = self.email_split(cr, uid, [res_id], msg, context=context)
+        partner_ids = filter(None, self._find_partner_from_emails(
+            cr, uid, [res_id], email_list,
+            force_create=False, context=context))
+
+        self.message_subscribe(cr, uid, [res_id], partner_ids, context=context)
+
+        return res_id
+
 
 class BusinessRequirementCategory(models.Model):
     _name = "business.requirement.category"
