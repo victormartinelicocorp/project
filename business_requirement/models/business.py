@@ -63,6 +63,14 @@ class BusinessRequirement(models.Model):
         store=True,
         states={'draft': [('readonly', False)]}
     )
+    business_requirement_categ_id = fields.Many2many(
+        'business.requirement.category',
+        string='Business Requirement Categ',
+        relation='business_requirement_category_rel',
+        readonly=True,
+        store=True,
+        states={'draft': [('readonly', False)]}
+    )
     state = fields.Selection(
         selection="_get_states",
         string='State',

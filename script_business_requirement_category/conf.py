@@ -1,0 +1,7 @@
+server = 'http://localhost:8073'
+db = 'elico_elicorp_v8_0504_01'
+user = 'admin'
+password = 'elico'
+br_model = 'business.requirement'
+project_categ_model = 'project.category'
+br_categ_model = 'business.requirement.category'
